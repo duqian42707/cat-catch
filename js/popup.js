@@ -270,6 +270,8 @@ function AddMedia(data, currentTab = true) {
             } else {
                 url += `&initiator=${encodeURIComponent(data.initiator)}`;
             }
+            // 添加ts参数
+            url += `&tsAddArg=1`;
             chrome.tabs.create({ url: url, index: tab.index + 1 });
         });
         return false;

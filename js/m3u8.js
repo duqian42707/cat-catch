@@ -274,17 +274,26 @@ $(function () {
         _fragments.splice(0);   // 清空 防止直播HLS无限添加
         /* 获取 m3u8文件原始内容 MANIFEST_PARSED也能获取但偶尔会为空(BUG?) 放在LEVEL_LOADED获取更安全*/
         _m3u8Content = data.m3u8;
+
+        let baseUrl = '';
+        let extArgs = '';
+        if (tsAddArg) {
+            const demoTsUrl = 'https://xxx'
+            const tsObj = extractTsUrl(demoTsUrl);
+            baseUrl = tsObj['baseUrl'];
+            extArgs = tsObj['suffix'];
+        }
         for (let i in data.fragments) {
             /*
             * 少部分网站下载ts必须带有参数才能正常下载
             * 添加m3u8地址的参数
             */
-            if (tsAddArg && _m3u8Arg) {
+            if (tsAddArg) {
                 const flag = new RegExp("[?]([^\n]*)").exec(data.fragments[i].url);
-                const sep = flag ? '&' : '?';
-                data.fragments[i].url = data.fragments[i].url + sep + _m3u8Arg;
+                data.fragments[i].url = data.fragments[i].url + extArgs;
+                data.fragments[i].url = changeBashUrl(data.fragments[i].url, baseUrl);
             }
-            /* 
+            /*
             * 查看是否加密 下载key
             * firefox CSP政策不允许在script-src 使用blob 不能直接调用hls.js下载好的密钥
             */
@@ -916,7 +925,7 @@ $(function () {
             }
             // 关闭监听
             transmuxer.off('data');
-            // 正确转换 下载格式改为 mp4 
+            // 正确转换 下载格式改为 mp4
             if (!headEncoding) {
                 fileBlob = new Blob(_tsBuffer, { type: "video/mp4" });
                 ext = "mp4";
@@ -1341,6 +1350,34 @@ function addBashUrl(baseUrl, m3u8Text) {
     }
     return m3u8Text;
 }
+
+function extractTsUrl(tsUrl) {
+    if (!tsUrl) {
+        return {};
+    }
+    const path = tsUrl.split("?")[0];
+    const index = path.lastIndexOf('/');
+    const baseUrl = path.substring(0, index + 1);
+    const params = new URL(tsUrl).searchParams;
+    return {
+        baseUrl,
+        suffix: '&sign=' + params.get('sign') + '&t=' + params.get('t') + '&us=' + params.get('us')
+    };
+}
+
+// tsUrl改变baseUrl
+function changeBashUrl(tsUrl, baseUrl) {
+    if (tsUrl.toLowerCase().startsWith("http://") || tsUrl.toLowerCase().startsWith("https://")) {
+        const idx1 = tsUrl.indexOf('?');
+        const path = tsUrl.substring(0, idx1);
+        const suffix = tsUrl.substring(idx1);
+        const index = path.lastIndexOf("/");
+        const relPath = path.substring(index + 1);
+        tsUrl = baseUrl + relPath + suffix;
+    }
+    return tsUrl;
+}
+
 // ts列表转换成m3u8
 function tsListTom3u8Text(tsList) {
     tsList = tsList.split("\n");
